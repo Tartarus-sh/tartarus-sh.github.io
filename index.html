@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>tartarus.sh</title>
+  <style>
+    @font-face { font-family: 'PixelFont'; src: url('font.ttf') format('truetype'); }
+    body { background: #1e1e1e; color: #8aff8a; font-family: 'PixelFont', monospace; margin: 0; padding: 0; overflow: hidden; position: relative; }
+    #bg-image { position: absolute; bottom: 0; right: 0; width: 300px; height: auto; z-index: -2; }
+    #overlay-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+    #terminal { position: relative; padding: 20px; white-space: pre-wrap; line-height: 1.2; height: 100vh; box-sizing: border-box; overflow-y: auto; z-index: 0; }
+    .cursor { display: inline-block; width: 10px; height: 20px; background: #8aff8a; vertical-align: bottom; animation: blink 1s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    #input-line { display: block; }
+    #cmd { display: inline; }
+    a { color: #8aff8a; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <img id="bg-image" src="bg.gif" alt="background">
+  <img id="overlay-image" src="overlay.png" alt="overlay">
+  <div id="terminal"></div>
+  <script>
+    const term = document.getElementById('terminal');
+    const lines = [
+      "Tartarus.sh system initializing...",
+      "Loading core modules...",
+      "Establishing secure channels...",
+      "Boot sequence complete."
+    ];
+    let idx = 0;
+    let cmd = '';
+    let state = 'root';
+    let helpShown = false;
+
+    function printLine() {
+      if (idx < lines.length) {
+        if (lines[idx].includes("Loading core modules")) {
+          loadProgress(() => { appendLine(lines[idx]); idx++; setTimeout(printLine, 500); });
+        } else {
+          appendLine(lines[idx]); idx++; setTimeout(printLine, 500);
+        }
+      } else showPrompt();
+    }
+
+    function appendLine(text) {
+      const line = document.createElement('div'); line.textContent = text;
+      term.appendChild(line); term.scrollTop = term.scrollHeight;
+    }
+
+    function loadProgress(callback) {
+      const bar = document.createElement('div'); term.appendChild(bar);
+      let pct = 0;
+      function step() {
+        pct += 5;
+        const f = Math.floor(pct/10), e = 10 - f;
+        bar.textContent = `Loading core modules [${'#'.repeat(f)}${'-'.repeat(e)}] ${pct}%`;
+        term.scrollTop = term.scrollHeight;
+        pct < 100 ? setTimeout(step, 100) : callback();
+      }
+      step();
+    }
+
+    function showPrompt() {
+      const input = document.createElement('div'); input.id = 'input-line';
+      input.innerHTML = '[tartarus@user]~ <span id="cmd"></span><span class="cursor"></span>';
+      term.appendChild(input); term.scrollTop = term.scrollHeight;
+      document.addEventListener('keydown', handleInput);
+    }
+
+    function handleInput(e) {
+      if (e.key.length === 1) { cmd += e.key; updateCmd(); }
+      else if (e.key === 'Backspace') { cmd = cmd.slice(0,-1); updateCmd(); }
+      else if (e.key === 'Enter') { document.removeEventListener('keydown', handleInput); enterCmd(); }
+    }
+
+    function updateCmd() {
+      const span = document.getElementById('cmd'); if (span) span.textContent = cmd;
+    }
+
+    function enterCmd() {
+      const line = document.getElementById('input-line'); if (line) line.remove();
+      appendLine(`[tartarus@user]~ ${cmd}`);
+      const c = cmd.trim().toLowerCase(); cmd = '';
+      const root = ['staff','about','join','help'];
+      if (state === 'root' && root.includes(c)) {
+        if (c === 'help') { showHelp(); showPrompt(); return; }
+        navigate(c);
+      } else if (state === 'root' && !root.includes(c)) {
+        appendLine('Unknown command: ' + c);
+        if (!helpShown) { showHelp(); helpShown = true; }
+        showPrompt();
+      } else if (state === 'submenu' && c === 'back') { reset(); }
+      else { appendLine('Unknown command: ' + c); showPrompt(); }
+    }
+
+    function showHelp() {
+      appendLine('Commands: staff, about, join, help');
+    }
+
+    function navigate(cmd) {
+      term.innerHTML = '';
+      if (cmd === 'staff') showStaff();
+      else if (cmd === 'about') showAbout();
+      else if (cmd === 'join') window.location.href = 'https://discord.gg/H44s2vpGjc';
+    }
+
+    function showStaff() {
+      appendLine('--- STAFF ---');
+      const staff = [
+        {name: 'Chiyo (Owner)', url: 'https://chiyo.wtf'},
+        {name: 'Humza (Co-Owner)', url: 'https://humzak711.github.io/'},
+        {name: 'ArcoNightshade (Admin)', url: 'https://www.raptorbytes.org/'},
+      ];
+      staff.forEach(s => {
+        const a = document.createElement('a'); a.href = s.url; a.textContent = s.name; a.target = '_blank';
+        term.appendChild(a); term.appendChild(document.createElement('div'));
+      });
+      state = 'submenu'; showPrompt();
+    }
+
+    function showAbout() {
+      appendLine('--- ABOUT ---');
+      const msg = 'Welcome to Tartarus —\nThis is the website for my cybersec server.\nI’m the owner, Chiyo! \nThank you for coming.';
+      const d = document.createElement('div'); term.appendChild(d);
+      let i = 0;
+      function t() { if (i < msg.length) { d.textContent += msg[i++]; term.scrollTop = term.scrollHeight; setTimeout(t, 20); } else { state = 'submenu'; showPrompt(); } }
+      t();
+    }
+
+    function reset() { term.innerHTML = ''; idx = 0; state = 'root'; helpShown = false; printLine(); }
+
+    printLine();
+  </script>
+</body>
+</html>
